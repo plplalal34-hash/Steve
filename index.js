@@ -2,9 +2,9 @@ import { Client, GatewayIntentBits } from 'discord.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import express from 'express';
 
-// خادم ويب بسيط للبقاء متصلاً على Render
+// خادم ويب للبقاء أونلاين على Render
 const app = express();
-app.get('/', (req, res) => res.send('Steve AI is running!'));
+app.get('/', (req, res) => res.send('Steve is Online! ✅'));
 app.listen(process.env.PORT || 3000);
 
 const client = new Client({
@@ -15,12 +15,12 @@ const client = new Client({
     ],
 });
 
-// إعداد Gemini
+// ربط الذكاء الاصطناعي
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// الحل هنا: تحديد الموديل بالإصدار الكامل لضمان عدم حدوث خطأ 404
+// محاولة استخدام الإصدار الذي طلبته
 const model = genAI.getGenerativeModel({ 
-    model: "gemini-1.5-flash-latest" 
+    model: "gemini-2.5-flash" 
 });
 
 client.once('ready', () => {
@@ -35,16 +35,15 @@ client.on('messageCreate', async (message) => {
     try {
         await message.channel.sendTyping();
         
-        // استخدام generateContent بطريقة متوافقة مع المكتبة الحديثة
         const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
+        const response = result.response.text();
         
-        await message.reply(text);
+        await message.reply(response);
 
     } catch (error) {
-        console.error("خطأ في العقل:", error);
-        await message.reply("عذراً، واجه 'عقلي' مشكلة في المعالجة! تأكد من أن مفتاح الـ API صحيح.");
+        console.error("خطأ:", error);
+        // رسالة تنبيه في حال كان الإصدار غير مدعوم
+        await message.reply("عذراً، واجهت مشكلة في الاتصال بـ 'عقلي'. قد يكون إصدار الموديل غير متوفر حالياً.");
     }
 });
 
