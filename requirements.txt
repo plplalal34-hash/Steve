@@ -1,4 +1,5 @@
 discord.py
-google-generativeai
+groq
+openai
 python-dotenv
 flask
