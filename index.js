@@ -1,44 +1,49 @@
 const { Client, GatewayIntentBits } = require('discord.js');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// 1. إعداد البوت والصلاحيات (Intents) اللازمة
+// إعداد البوت وصلاحياته
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent // ضروري جداً لقراءة محتوى الرسائل
-    ]
+        GatewayIntentBits.MessageContent,
+    ],
 });
 
-// 2. رسالة تأكيد عند تشغيل البوت بنجاح
+// إعداد الذكاء الاصطناعي (Gemini)
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
 client.once('ready', () => {
-    console.log(`✅ البوت يعمل الآن بنجاح باسم: ${client.user.tag}`);
+    console.log(`✅ تم تشغيل البوت بنجاح باسم: ${client.user.tag}`);
 });
 
-// 3. كود معالجة الرسائل (بما في ذلك الكود الخاص بك لتقسيم الرسائل الطويلة)
 client.on('messageCreate', async (message) => {
-    // تجاهل رسائل البوتات الأخرى لتجنب التكرار اللانهائي
+    // تجاهل رسائل البوتات الأخرى
     if (message.author.bot) return;
 
-    // مثال بسيط للتجربة: إذا كتب شخص "مرحبا"، سيرد عليه البوت
-    if (message.content === 'مرحبا') {
-        const text = 'أهلاً بك يا صديقي!';
+    // البوت سيرد فقط إذا تم منشنته أو بدأت الرسالة بكلمة "ستيف"
+    if (message.content.startsWith('ستيف')) {
+        const prompt = message.content.replace('ستيف', '').trim();
         
+        if (!prompt) return message.reply("نعم؟ أنا معك، تفضل اسألني أي شيء.");
+
         try {
-            // كود الحماية الخاص بك من الرسائل الطويلة
-            if (text.length > 2000) {
-                const chunks = text.match(/[\s\S]{1,1999}/g) || [];
-                for (const chunk of chunks) {
-                    await message.reply(chunk);
-                }
-            } else {
-                await message.reply(text);
-            }
+            // إظهار أن البوت "يكتب الآن" لمزيد من الواقعية
+            await message.channel.sendTyping();
+
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
+
+            // إرسال رد الذكاء الاصطناعي
+            await message.reply(text);
         } catch (error) {
-            console.error("خطأ في معالجة الرسالة:", error);
-            message.reply("⚠️ حدث خطأ أثناء محاولة الرد، تأكد من إعدادات البوت.");
+            console.error("خطأ في الاتصال بالذكاء الاصطناعي:", error);
+            await message.reply("عذراً، حدث خطأ أثناء محاولة التفكير. حاول مرة أخرى لاحقاً.");
         }
     }
 });
 
-// 4. تسجيل الدخول باستخدام المتغير البيئي (بدون أي علامات تنصيص)
+// تسجيل الدخول باستخدام المتغير الذي وضعناه في Northflank
 client.login(process.env.BOT_TOKEN);
