@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import express from 'express';
 
 const app = express();
-app.get('/', (req, res) => res.send('Steve AI is Online! ✅'));
+app.get('/', (req, res) => res.send('Steve is Live! ✅'));
 app.listen(process.env.PORT || 3000);
 
 const client = new Client({
@@ -16,11 +16,11 @@ const client = new Client({
 });
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-// استخدم هذا المسمى الدقيق لتجنب خطأ 404
+// ضبط النموذج على الإصدار المستقر 1.5 فلاش لضمان الاستجابة
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 client.once('ready', () => {
-    console.log(`✅ تم تشغيل الجسد بنجاح باسم: ${client.user.tag}`);
+    console.log(`✅ ${client.user.tag} متصل الآن`);
 });
 
 client.on('messageCreate', async (message) => {
@@ -36,23 +36,20 @@ client.on('messageCreate', async (message) => {
     if (!prompt && isMentioned) return;
 
     try {
-        // تفعيل حالة "يكتب..." فوراً
         await message.channel.sendTyping();
 
-        // إرسال الطلب لجيميناي وانتظار الرد (هذا هو وقت التفكير الطبيعي)
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
 
         if (responseText) {
-            // إرسال الكلام الناتج في رسالة واحدة فقط
             await message.reply({
                 content: responseText,
                 allowedMentions: { repliedUser: true }
             });
         }
     } catch (error) {
-        // إدارة الأخطاء بصمت تام دون إرسال رسائل تقنية للمستخدم
-        console.error("Gemini Error:", error.message);
+        // إدارة الأخطاء بصمت لتجنب الرسائل التقنية المزعجة
+        console.error("خطأ في الاتصال بـ Gemini:", error.message);
     }
 });
 
