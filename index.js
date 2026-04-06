@@ -3,43 +3,41 @@ const { Client, GatewayIntentBits } = require("discord.js");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const express = require("express");
 
-// إعداد خادم ويب صغير لمنع توقف البوت على Railway
+// 1. إعداد خادم ويب بسيط لمنع توقف البوت في Railway
 const app = express();
 const port = process.env.PORT || 3000;
-app.get("/", (req, res) => res.send("Steve Bot is Online!"));
-app.listen(port, "0.0.0.0", () => console.log(`Listening on port ${port}`));
+app.get("/", (req, res) => res.send("Steve Bot is Active and Running!"));
+app.listen(port, "0.0.0.0", () => console.log(`Web server listening on port ${port}`));
 
-// إعداد ذكاء جوجل الاصطناعي (Gemini)
+// 2. إعداد ذكاء جوجل الاصطناعي (Gemini)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-// إعداد بوت الديسكورد
+// 3. إعداد بوت الديسكورد مع الصلاحيات اللازمة
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
+        GatewayIntentBits.MessageContent // ضروري ليقرأ كلمة "ستيف"
     ]
 });
 
 client.on("ready", () => {
-    console.log(`✅ تم تسجيل الدخول بنجاح باسم: ${client.user.tag}`);
+    console.log(`✅ تم تشغيل البوت بنجاح باسم: ${client.user.tag}`);
 });
 
 client.on("messageCreate", async (message) => {
-    // تجاهل رسائل البوتات أو الرسائل التي لا تحتوي على كلمة "ستيف"
+    // تجاهل رسائل البوتات أو الرسائل التي لا تنادي "ستيف"
     if (message.author.bot || !message.content.includes("ستيف")) return;
 
     try {
-        // إظهار أن البوت "يكتب الآن..."
-        await message.channel.sendTyping();
+        await message.channel.sendTyping(); // إظهار أن البوت يكتب...
 
-        // إرسال النص إلى Gemini واستلام الرد
         const result = await model.generateContent(message.content);
         const response = await result.response;
         const text = response.text();
 
-        // الرد على المستخدم (تقسيم النص إذا كان طويلاً جداً)
+        // تقسيم الرد إذا كان أطول من 2000 حرف (حدود ديسكورد)
         if (text.length > 2000) {
             const chunks = text.match(/[\s\S]{1,2000}/g);
             for (const chunk of chunks) {
@@ -50,9 +48,9 @@ client.on("messageCreate", async (message) => {
         }
     } catch (error) {
         console.error("خطأ في معالجة الرسالة:", error);
-        message.reply("⚠️ عذراً، واجهت مشكلة في معالجة طلبك حالياً.");
+        message.reply("⚠️ حدث خطأ أثناء محاولة الرد، تأكد من إعدادات API Key.");
     }
 });
 
-// تشغيل البوت باستخدام التوكن المخزن في المتغيرات
+// 4. تسجيل الدخول
 client.login(process.env.DISCORD_BOT_TOKEN);
