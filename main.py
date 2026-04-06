@@ -27,9 +27,13 @@ load_dotenv()
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
-# إعداد عقل Gemini (إصدار 2.5 فلاش ليتيل كما طلبت)
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-2.5-flash-lite')
+
+# تعديل سطر الموديل ليكون أكثر كفاءة:
+model = genai.GenerativeModel(
+    model_name='gemini-1.5-flash',
+    system_instruction="أجب باختصار وتركيز باللغة التي يتحدث بها المستخدم (عربي/إنجليزي)."
+)
+
 
 # إعداد صلاحيات ديسكورد
 intents = discord.Intents.default()
