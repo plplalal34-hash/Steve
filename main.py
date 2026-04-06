@@ -5,81 +5,68 @@ from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
 
-# --- أولاً: إعداد خادم صغير لبقاء البوت نشطاً على Render ---
+# --- إعداد خادم الويب (Keep-Alive) ---
 app = Flask('')
-
 @app.route('/')
-def home():
-    return "Steve is Online and Running!"
+def home(): return "Steve is running on Legacy Code!"
+def run(): app.run(host='0.0.0.0', port=8080)
+def keep_alive(): Thread(target=run).start()
 
-def run_web_server():
-    # Render يستخدم المنفذ 8080 غالباً
-    app.run(host='0.0.0.0', port=8080)
-
-def keep_alive():
-    t = Thread(target=run_web_server)
-    t.start()
-
-# --- ثانياً: إعداد الذكاء الاصطناعي وجسد البوت ---
-
-# تحميل المفاتيح من إعدادات البيئة
+# --- إعدادات البوت ---
 load_dotenv()
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
+# التعريف القديم والمستقر لمكتبة جوجل
+genai.configure(api_key=GEMINI_API_KEY)
 
-# تعديل سطر الموديل ليكون أكثر كفاءة:
+# استخدام مصفوفة الإعدادات القديمة لضمان عمل 1.5 Flash
+generation_config = {
+  "temperature": 0.9,
+  "top_p": 1,
+  "top_k": 1,
+  "max_output_tokens": 800,
+}
+
+# تعريف الموديل بالصيغة القديمة
 model = genai.GenerativeModel(
-    model_name='gemini-1.5-flash',
-    system_instruction="أجب باختصار وتركيز باللغة التي يتحدث بها المستخدم (عربي/إنجليزي)."
+  model_name="gemini-1.5-flash",
+  generation_config=generation_config
 )
 
-
-# إعداد صلاحيات ديسكورد
 intents = discord.Intents.default()
-intents.message_content = True 
+intents.message_content = True
 client = discord.Client(intents=intents)
 
 @client.event
 async def on_ready():
-    print(f'-----------------------------------')
-    print(f'ستيف (Steve) متصل الآن كـ: {client.user}')
-    print(f'يستخدم نموذج: gemini-2.5-flash-lite')
-    print(f'-----------------------------------')
+    print(f'✅ ستيف متصل بالنسخة المستقرة: {client.user}')
 
 @client.event
 async def on_message(message):
-    # لا يرد على نفسه
-    if message.author == client.user:
-        return
+    if message.author == client.user: return
 
-    # يبدأ "بالتفكير" (Writing...) في الديسكورد
     async with message.channel.typing():
         try:
-            # إرسال الرسالة إلى الذكاء الاصطناعي
+            # طريقة المناداة الكلاسيكية
             response = model.generate_content(message.content)
             
-            # معالجة الرد (ديسكورد لا يقبل أكثر من 2000 حرف)
-            ai_reply = response.text
-            if len(ai_reply) > 2000:
-                # تقسيم الرد إذا كان طويلاً جداً
-                for i in range(0, len(ai_reply), 2000):
-                    await message.channel.send(ai_reply[i:i+2000])
+            # في النسخ القديمة أحياناً نحتاج للتأكد من وجود النص
+            if response.text:
+                await message.channel.send(response.text[:2000])
             else:
-                await message.channel.send(ai_reply)
+                await message.channel.send("عذراً، لم أستطع الرد حالياً.")
 
         except Exception as e:
-            print(f"Error: {e}")
-            await message.channel.send("حدث خطأ تقني في معالجة الطلب، يرجى المحاولة لاحقاً.")
-
-# --- ثالثاً: التشغيل النهائي ---
+            err = str(e)
+            print(f"Error: {err}")
+            if "429" in err:
+                await message.channel.send("⚠️ ضغط كبير على السيرفر، سأنتظر دقيقة.")
+            else:
+                await message.channel.send(f"⚠️ خطأ تقني: {err[:50]}")
 
 if __name__ == "__main__":
-    # تشغيل خادم الويب الوهمي لـ Render
     keep_alive()
-    # تشغيل "ستيف"
     if DISCORD_TOKEN:
         client.run(DISCORD_TOKEN)
-    else:
-        print("خطأ: لم يتم العثور على DISCORD_TOKEN في إعدادات البيئة!")
         
