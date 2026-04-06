@@ -5,33 +5,24 @@ from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
 
-# --- إعداد خادم الويب (Keep-Alive) ---
+# --- نظام البقاء حياً على Render ---
 app = Flask('')
 @app.route('/')
-def home(): return "Steve is running on Legacy Code!"
+def home(): return "Steve is Online with Gemini 1.5 Flash!"
 def run(): app.run(host='0.0.0.0', port=8080)
 def keep_alive(): Thread(target=run).start()
 
-# --- إعدادات البوت ---
+# --- إعدادات الهوية والمفاتيح ---
 load_dotenv()
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
-# التعريف القديم والمستقر لمكتبة جوجل
+# إعداد المكتبة
 genai.configure(api_key=GEMINI_API_KEY)
 
-# استخدام مصفوفة الإعدادات القديمة لضمان عمل 1.5 Flash
-generation_config = {
-  "temperature": 0.9,
-  "top_p": 1,
-  "top_k": 1,
-  "max_output_tokens": 800,
-}
-
-# تعريف الموديل بالصيغة القديمة
+# تعريف الموديل 1.5 Flash بالصيغة المتوافقة مع 0.7.2
 model = genai.GenerativeModel(
-  model_name="gemini-1.5-flash",
-  generation_config=generation_config
+    model_name="models/gemini-1.5-flash" # إضافة كلمة models/ لضمان التعرف عليه
 )
 
 intents = discord.Intents.default()
@@ -40,7 +31,8 @@ client = discord.Client(intents=intents)
 
 @client.event
 async def on_ready():
-    print(f'✅ ستيف متصل بالنسخة المستقرة: {client.user}')
+    print(f'✅ تم الاتصال بنجاح كـ: {client.user}')
+    print(f'العقل الحالي: Gemini 1.5 Flash')
 
 @client.event
 async def on_message(message):
@@ -48,25 +40,27 @@ async def on_message(message):
 
     async with message.channel.typing():
         try:
-            # طريقة المناداة الكلاسيكية
+            # إرسال المحادثة
             response = model.generate_content(message.content)
             
-            # في النسخ القديمة أحياناً نحتاج للتأكد من وجود النص
-            if response.text:
+            # التأكد من نجاح الرد
+            if response and response.text:
                 await message.channel.send(response.text[:2000])
             else:
-                await message.channel.send("عذراً، لم أستطع الرد حالياً.")
+                await message.channel.send("⚠️ تلقيت رداً فارغاً من الذكاء الاصطناعي.")
 
         except Exception as e:
-            err = str(e)
-            print(f"Error: {err}")
-            if "429" in err:
-                await message.channel.send("⚠️ ضغط كبير على السيرفر، سأنتظر دقيقة.")
+            err_msg = str(e)
+            print(f"Error: {err_msg}")
+            
+            if "429" in err_msg:
+                await message.channel.send("⚠️ وصلت للحد الأقصى للرسائل (Rate Limit)، انتظر دقيقة.")
+            elif "400" in err_msg:
+                await message.channel.send("⚠️ خطأ في الطلب (قد يكون المحتوى غير مدعوم).")
             else:
-                await message.channel.send(f"⚠️ خطأ تقني: {err[:50]}")
+                await message.channel.send(f"⚠️ خطأ تقني: {err_msg[:100]}")
 
 if __name__ == "__main__":
     keep_alive()
     if DISCORD_TOKEN:
         client.run(DISCORD_TOKEN)
-        
