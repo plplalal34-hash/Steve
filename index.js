@@ -53,6 +53,8 @@ client.on("messageCreate", async (message) => {
 });
 
 // 4. تسجيل الدخول
+// ✅ صح
 client.login(process.env.BOT_TOKEN);
+
 
 
