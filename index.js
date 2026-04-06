@@ -1,66 +1,82 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionsBitField } = require('discord.js');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const express = require('express');
 
-// --- 1. إعداد خادم ويب صغير (لضمان عمل الخطة المجانية) ---
+// --- 1. خادم ويب صغير للاستضافة ---
 const app = express();
-const port = process.env.PORT || 3000;
+app.get('/', (req, res) => res.send('✅ عقل ستيف الإلكتروني يعمل!'));
+app.listen(process.env.PORT || 3000);
 
-app.get('/', (req, res) => {
-  res.send('✅ بوت ستيف يعمل الآن ومستيقظ!');
-});
-
-app.listen(port, () => {
-  console.log(`📡 خادم الويب يعمل على المنفذ: ${port}`);
-});
-
-// --- 2. إعداد ديسكورد وبوت الذكاء الاصطناعي ---
+// --- 2. إعداد ديسكورد ---
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMembers, // ضروري للتحكم بالأعضاء
     ],
 });
 
-// إعداد Gemini AI
+// --- 3. إعداد الذكاء الاصطناعي مع "أدوات التحكم" ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-// --- 3. أحداث البوت (Events) ---
-client.once('ready', () => {
-    console.log(`✅ تم تسجيل الدخول بنجاح باسم: ${client.user.tag}`);
+// تعريف الوظائف التي يمكن للذكاء الاصطناعي استخدامها
+const tools = {
+    // وظيفة مسح الرسائل
+    clearMessages: async (amount, channelId) => {
+        const channel = await client.channels.fetch(channelId);
+        await channel.bulkDelete(Math.min(amount, 100));
+        return `تم مسح ${amount} رسالة بنجاح.`;
+    },
+    // وظيفة طرد عضو
+    kickUser: async (userId, guildId, reason) => {
+        const guild = await client.guilds.fetch(guildId);
+        const member = await guild.members.fetch(userId);
+        await member.kick(reason);
+        return `تم طرد المستخدم ${member.user.tag}.`;
+    }
+};
+
+const model = genAI.getGenerativeModel({ 
+    model: "gemini-1.5-flash",
+    systemInstruction: "أنت عقل بوت ديسكورد اسمه 'ستيف'. لديك صلاحيات إدارية. إذا طلب منك المستخدم القيام بفعل إداري (مثل المسح أو الطرد)، استخدم الأدوات المتاحة لك. كن مهذباً ولكن حازماً."
 });
 
+// --- 4. معالجة الرسائل والتحكم ---
 client.on('messageCreate', async (message) => {
-    // تجاهل رسائل البوتات لكي لا يدخل في حلقة مفرغة
-    if (message.author.bot) return;
+    if (message.author.bot || !message.content.startsWith('ستيف')) return;
 
-    // البوت سيرد إذا بدأت الرسالة بكلمة "ستيف"
-    if (message.content.startsWith('ستيف')) {
-        const prompt = message.content.replace('ستيف', '').trim();
+    const prompt = message.content.replace('ستيف', '').trim();
+    
+    try {
+        await message.channel.sendTyping();
+
+        // إرسال الرسالة للذكاء الاصطناعي
+        const chat = model.startChat();
+        const result = await chat.sendMessage(prompt);
+        const response = result.response.text();
+
+        // هنا نقوم بفحص ما إذا كان الـ AI يريد تنفيذ أمر
+        // ملاحظة: لتبسيط الأمر لك، سنجعل الـ AI يرد نصياً ويقوم بالعمل خلف الكواليس
         
-        if (!prompt) {
-            return message.reply("نعم؟ أنا معك، تفضل اسألني أي شيء (مثلاً: ستيف ما هي وظيفة الميتوكندريا؟)");
+        if (prompt.includes('احذف') || prompt.includes('امسح')) {
+            const num = prompt.match(/\d+/); // استخراج الرقم من النص
+            if (num && message.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
+                await tools.clearMessages(parseInt(num[0]), message.channelId);
+            }
         }
 
-        try {
-            // إظهار أن البوت "يكتب الآن"
-            await message.channel.sendTyping();
+        if (prompt.includes('اطرد')) {
+             // منطق استخراج العضو والطرد
+             // يمكن تطويره باستخدام Mentions
+        }
 
-            // إرسال السؤال للذكاء الاصطناعي
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            const text = response.text();
+        await message.reply(response);
 
-            // الرد على المستخدم
-            if (text.length > 2000) {
-                // إذا كان الرد طويلاً جداً (أكثر من 2000 حرف) يتم تقسيمه
-                const chunk = text.substring(0, 1900);
-                await message.reply(chunk + "...");
-            } else {
-                await message.reply(text);
-            }
-        } catch (error) {
-            console.
+    } catch (error) {
+        console.error(error);
+        await message.reply("واجهت مشكلة في معالجة طلبك الإداري.");
+    }
+});
 
+client.login(process.env.BOT_TOKEN);
