@@ -53,5 +53,5 @@ client.on("messageCreate", async (message) => {
 });
 
 // 4. تسجيل الدخول
-client.login("Dicord");
+client.login("discord_bot_token");
 
