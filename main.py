@@ -4,10 +4,9 @@ import discord
 from flask import Flask
 from threading import Thread
 
-# --- إعداد سيرفر Render ---
 app = Flask('')
 @app.route('/')
-def home(): return "Steve Admin OS is Active"
+def home(): return "Llama Test is Online!"
 
 def run():
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
@@ -21,30 +20,18 @@ client = discord.Client(intents=intents)
 
 @client.event
 async def on_ready():
-    print(f'✅ {client.user} جاهز للعمل بنظام المدير والموظف!')
+    print(f'✅ متصل لاختبار Llama باسم: {client.user}')
 
 @client.event
 async def on_message(message):
     if message.author.bot: return
 
-    # --- معيار الفصل: هل الرسالة "أمر إداري" أم "دردشة عادية"؟ ---
-    admin_tokens = ["قرار", "إدارة", "سيرفر", "أمر", "تنظيم", "قانون", "رتبة", "صلاحية"]
-    is_admin = any(token in message.content for token in admin_tokens)
-
-    if is_admin:
-        # عقل "المدير الإداري" - نستخدم النسخة 7B لأنها متاحة دائماً ومستقرة
-        model = "qwen/qwen-2.5-7b-instruct:free"
-        system_msg = "أنت المدير الإداري لـ Steve. وظيفتك اتخاذ قرارات حازمة وتنظيمية بأسلوب رسمي."
-        label = "👔 **الإدارة (Qwen):**"
-    else:
-        # عقل "الموظف الودود" للدردشة
-        model = "meta-llama/llama-3.1-8b-instruct:free"
-        system_msg = "أنت ستيف، صديق مرح للدردشة العادية."
-        label = "💬 **ستيف (Llama):**"
-
     async with message.channel.typing():
         try:
             api_key = os.getenv("OPENROUTER_API_KEY")
+            # استخدام موديل Llama 3.1 8B المجاني والأكثر استقراراً
+            model = "meta-llama/llama-3.1-8b-instruct:free"
+            
             response = requests.post(
                 url="https://openrouter.ai/api/v1/chat/completions",
                 headers={
@@ -53,23 +40,20 @@ async def on_message(message):
                 },
                 json={
                     "model": model,
-                    "messages": [
-                        {"role": "system", "content": system_msg},
-                        {"role": "user", "content": message.content}
-                    ]
+                    "messages": [{"role": "user", "content": message.content}]
                 }
             )
             
-            res = response.json()
-            if 'choices' in res:
-                content = res['choices'][0]['message']['content']
-                await message.channel.send(f"{label}\n{content}")
+            data = response.json()
+            if 'choices' in data:
+                await message.channel.send(f"⚡ **[Llama]:** {data['choices'][0]['message']['content']}")
             else:
-                # إذا كان الموديل مشغولاً، سيعطيك السبب فوراً
-                err = res.get('error', {}).get('message', 'خطأ تقني')
-                await message.channel.send(f"⚠️ فشل الطلب: `{err}`")
+                # طباعة الخطأ القادم من OpenRouter مباشرة
+                error_info = data.get('error', {}).get('message', 'Unknown Error')
+                await message.channel.send(f"❌ خطأ من المزود: `{error_info}`")
+                
         except Exception as e:
-            print(f"Error: {e}")
+            await message.channel.send(f"⚠️ خطأ في الكود: `{str(e)}`")
 
 if __name__ == "__main__":
     keep_alive()
