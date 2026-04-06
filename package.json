@@ -1,7 +1,7 @@
 {
   "name": "steve-bot",
   "version": "1.0.0",
-  "description": "Discord bot powered by Gemini AI",
+  "description": "Steve AI Bot for Discord",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
