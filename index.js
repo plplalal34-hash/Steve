@@ -1,10 +1,9 @@
-import { Client, GatewayIntentBits } from 'discord.js';
+import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import express from 'express';
 
-// إبقاء البوت متصلاً على Render
 const app = express();
-app.get('/', (req, res) => res.send('Steve Bridge is Active! ✅'));
+app.get('/', (req, res) => res.send('Steve is Ready!'));
 app.listen(process.env.PORT || 3000);
 
 const client = new Client({
@@ -13,47 +12,47 @@ const client = new Client({
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
     ],
+    partials: [Partials.Message, Partials.Channel],
 });
 
-// إعداد الاتصال بـ Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ 
-    model: "gemini-1.5-flash" // هذا الإصدار هو الأكثر استقراراً لتجنب خطأ 404
-});
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 client.once('ready', () => {
-    console.log(`✅ تم تشغيل الجسد بنجاح باسم: ${client.user.tag}`);
+    console.log(`✅ ${client.user.tag} Online`);
 });
 
 client.on('messageCreate', async (message) => {
-    // تجاهل رسائل البوتات أو الرسائل التي لا تبدأ بكلمة "ستيف"
-    if (message.author.bot || !message.content.startsWith('ستيف')) return;
+    if (message.author.bot) return;
 
-    // استخراج النص المرسل بعد كلمة "ستيف"
-    const userPrompt = message.content.replace('ستيف', '').trim();
-    if (!userPrompt) return message.reply("تفضل، ماذا تريد أن أرسل لـ Gemini؟");
+    const isMentioned = message.mentions.has(client.user);
+    const startsWithSteve = message.content.startsWith('ستيف');
+    const isReplyToBot = message.reference && (await message.channel.messages.fetch(message.reference.messageId)).author.id === client.user.id;
+
+    if (!isMentioned && !startsWithSteve && !isReplyToBot) return;
+
+    const prompt = message.content.replace(/<@!?\d+>/g, '').replace('ستيف', '').trim();
+    if (!prompt && isMentioned) return; // لن يرد إذا كان منشن فارغاً لتقليل الإزعاج
 
     try {
-        // إظهار أن البوت يكتب الآن في الديسكورد
+        // يبدأ بإظهار "يكتب..." فوراً ليأخذ وقته الطبيعي في المعالجة
         await message.channel.sendTyping();
-        
-        // 1. إرسال الكلام إلى جيميناي
-        const result = await model.generateContent(userPrompt);
-        
-        // 2. أخذ الكلام الناتج من جيميناي
-        const geminiResponse = result.response.text();
-        
-        // 3. وضع الكلام نفسه في الديسكورد كرد على المستخدم
-        if (geminiResponse) {
-            await message.reply(geminiResponse);
-        } else {
-            throw new Error("Empty Response from AI");
-        }
 
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
+
+        if (responseText) {
+            // يرسل الرد في رسالة واحدة فقط عند اكتمال الجواب
+            await message.reply({
+                content: responseText,
+                allowedMentions: { repliedUser: true }
+            });
+        }
     } catch (error) {
-        console.error("خطأ في نقل البيانات:", error);
-        await message.reply("عذراً، حدث خطأ أثناء محاولة جلب الرد من Gemini. تأكد من إعدادات الـ API Key.");
+        // صمت تام في حال حدوث خطأ تقني؛ لن يرسل رسائل اعتذار أو أخطاء برمجية
+        console.error("Silent Error Handler");
     }
 });
 
 client.login(process.env.BOT_TOKEN);
+
