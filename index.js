@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import express from 'express';
 
 const app = express();
-app.get('/', (req, res) => res.send('Steve Pro is Monitoring...'));
+app.get('/', (req, res) => res.send('Steve Pro is Online!'));
 app.listen(process.env.PORT || 3000);
 
 const client = new Client({
@@ -16,19 +16,20 @@ const client = new Client({
 });
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-// تجربة الإصدار الأقوى Pro بناءً على طلبك
+
+// استخدام المسمى الأحدث والأكثر ضماناً للعمل
 const model = genAI.getGenerativeModel({ 
-    model: "gemini-1.5-pro" 
+    model: "gemini-1.5-pro-latest" 
 });
 
 client.once('ready', () => {
-    console.log(`✅ تم تفعيل العقل المطور (Pro) لـ: ${client.user.tag}`);
+    console.log(`✅ المراقبة الذكية مفعلة باسم: ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
 
-    // مراقبة كاملة: منشن، نداء باسمه، أو رد مباشر
+    // المراقبة: يرد عند المنشن، التوجيه، أو كلمة ستيف
     const isMentioned = message.mentions.has(client.user);
     const startsWithSteve = message.content.startsWith('ستيف');
     const isReplyToBot = message.reference && (await message.channel.messages.fetch(message.reference.messageId)).author.id === client.user.id;
@@ -47,9 +48,9 @@ client.on('messageCreate', async (message) => {
             await message.reply(responseText);
         }
     } catch (error) {
-        // إظهار سبب الفشل التقني فوراً في الشات
+        // إظهار الخطأ التقني المباشر لحل أي مشكلة فوراً
         console.error("DEBUG:", error.message);
-        await message.reply(`❌ **تنبيه تقني (Debug):**\n\`\`\`\n${error.message}\n\`\`\``);
+        await message.reply(`❌ **خطأ تقني مكتشف:**\n\`\`\`\n${error.message}\n\`\`\``);
     }
 });
 
