@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import express from 'express';
 
 const app = express();
-app.get('/', (req, res) => res.send('Steve is Live! ✅'));
+app.get('/', (req, res) => res.send('Steve Debug Mode Active!'));
 app.listen(process.env.PORT || 3000);
 
 const client = new Client({
@@ -16,11 +16,11 @@ const client = new Client({
 });
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-// ضبط النموذج على الإصدار المستقر 1.5 فلاش لضمان الاستجابة
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+// محاولة استخدام إصدار 1.0 كما طلبت
+const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro" });
 
 client.once('ready', () => {
-    console.log(`✅ ${client.user.tag} متصل الآن`);
+    console.log(`✅ ${client.user.tag} متصل في وضع كشف الأخطاء`);
 });
 
 client.on('messageCreate', async (message) => {
@@ -33,7 +33,6 @@ client.on('messageCreate', async (message) => {
     if (!isMentioned && !startsWithSteve && !isReplyToBot) return;
 
     const prompt = message.content.replace(/<@!?\d+>/g, '').replace('ستيف', '').trim();
-    if (!prompt && isMentioned) return;
 
     try {
         await message.channel.sendTyping();
@@ -42,14 +41,12 @@ client.on('messageCreate', async (message) => {
         const responseText = result.response.text();
 
         if (responseText) {
-            await message.reply({
-                content: responseText,
-                allowedMentions: { repliedUser: true }
-            });
+            await message.reply(responseText);
         }
     } catch (error) {
-        // إدارة الأخطاء بصمت لتجنب الرسائل التقنية المزعجة
-        console.error("خطأ في الاتصال بـ Gemini:", error.message);
+        // إظهار المشكلة التقنية بالتفصيل في الديسكورد
+        console.error("DEBUG ERROR:", error);
+        await message.reply(`❌ **خطأ تقني مكتشف:**\n\`\`\`\n${error.message}\n\`\`\``);
     }
 });
 
