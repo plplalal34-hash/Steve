@@ -2,9 +2,8 @@ import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import express from 'express';
 
-// خادم الويب للبقاء أونلاين
 const app = express();
-app.get('/', (req, res) => res.send('Steve 1.0 Monitoring Mode Active!'));
+app.get('/', (req, res) => res.send('Steve Pro is Monitoring...'));
 app.listen(process.env.PORT || 3000);
 
 const client = new Client({
@@ -16,20 +15,20 @@ const client = new Client({
     partials: [Partials.Message, Partials.Channel],
 });
 
-// إعداد Gemini 1.0
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// تجربة الإصدار الأقوى Pro بناءً على طلبك
 const model = genAI.getGenerativeModel({ 
-    model: "gemini-1.0-pro" 
+    model: "gemini-1.5-pro" 
 });
 
 client.once('ready', () => {
-    console.log(`✅ ${client.user.tag} يراقب الشات الآن بنسخة 1.0`);
+    console.log(`✅ تم تفعيل العقل المطور (Pro) لـ: ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
 
-    // مراقبة الشات: الرد عند المنشن، أو كلمة ستيف، أو الردود (Replies)
+    // مراقبة كاملة: منشن، نداء باسمه، أو رد مباشر
     const isMentioned = message.mentions.has(client.user);
     const startsWithSteve = message.content.startsWith('ستيف');
     const isReplyToBot = message.reference && (await message.channel.messages.fetch(message.reference.messageId)).author.id === client.user.id;
@@ -39,10 +38,8 @@ client.on('messageCreate', async (message) => {
     const prompt = message.content.replace(/<@!?\d+>/g, '').replace('ستيف', '').trim();
 
     try {
-        // إظهار حالة "يكتب..."
         await message.channel.sendTyping();
 
-        // إرسال البيانات للذكاء الاصطناعي
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
 
@@ -50,7 +47,7 @@ client.on('messageCreate', async (message) => {
             await message.reply(responseText);
         }
     } catch (error) {
-        // عرض الخطأ التقني فوراً في الديسكورد لمعرفة سبب التوقف
+        // إظهار سبب الفشل التقني فوراً في الشات
         console.error("DEBUG:", error.message);
         await message.reply(`❌ **تنبيه تقني (Debug):**\n\`\`\`\n${error.message}\n\`\`\``);
     }
