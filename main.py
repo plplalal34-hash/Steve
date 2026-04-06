@@ -1,10 +1,9 @@
+import os
 import sys
 import types
-import os
 
-# تجاوز نقص مكتبة الصوت في الإصدارات الحديثة
-if 'audioop' not in sys.modules:
-    sys.modules['audioop'] = types.ModuleType('audioop')
+# خدعة برمجية لإيقاف مطالبات مكتبة الصوت نهائياً
+sys.modules['audioop'] = types.ModuleType('audioop')
 
 import discord
 import google.generativeai as genai
@@ -15,34 +14,28 @@ from dotenv import load_dotenv
 # --- خادم صغير للبقاء نشطاً ---
 app = Flask('')
 @app.route('/')
-def home(): return "Steve is Active!"
-def run(): app.run(host='0.0.0.0', port=8080)
-def keep_alive(): Thread(target=run).start()
+def home(): return "Steve is Alive!"
 
-# --- إعدادات جيميني ---
+def run_server():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run_server)
+    t.start()
+
+# --- إعدادات Gemini 1.5 Flash ---
 load_dotenv()
 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+model = genai.GenerativeModel('gemini-1.5-flash')
 
-# إعدادات الأمان (إيقاف كافة أنواع الحظر التلقائي)
-safety_settings = [
-    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-]
-
-model = genai.GenerativeModel(
-    model_name='gemini-1.5-flash',
-    safety_settings=safety_settings
-)
-
+# --- إعدادات Discord ---
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
 @client.event
 async def on_ready():
-    print(f'✅ {client.user} جاهز للدردشة!')
+    print(f'✅ {client.user} متصل وجاهز!')
 
 @client.event
 async def on_message(message):
@@ -51,35 +44,16 @@ async def on_message(message):
 
     async with message.channel.typing():
         try:
-            # طلب الرد
+            # محاولة توليد الرد
             response = model.generate_content(message.content)
-            
-            # محاولة جلب النص بأكثر من طريقة لضمان النجاح
-            res_text = ""
-            try:
-                res_text = response.text
-            except:
-                if response.candidates:
-                    res_text = response.candidates[0].content.parts[0].text
-            
-            if res_text:
-                await message.channel.send(res_text[:2000])
+            if response and response.text:
+                await message.channel.send(response.text[:2000])
             else:
-                await message.channel.send("⚠️ جوجل لم يرسل نصاً، قد يكون المحتوى حساساً جداً.")
-
+                await message.channel.send("⚠️ لم أتمكن من صياغة رد، جرب سؤالاً آخر.")
         except Exception as e:
-            error_msg = str(e)
-            print(f"Error Detail: {error_msg}")
-            
-            # إرسال تفصيل الخطأ لتعرف ما المشكلة بالضبط
-            if "API_KEY_INVALID" in error_msg:
-                await message.channel.send("❌ مفتاح الـ API غير صالح.")
-            elif "quota" in error_msg.lower():
-                await message.channel.send("⏳ انتهت صلاحية الاستخدام المجاني لليوم.")
-            else:
-                await message.channel.send(f"⚙️ خطأ تقني: `{error_msg[:100]}`")
+            print(f"Error: {e}")
+            await message.channel.send("⚙️ عذراً، واجهت مشكلة تقنية بسيطة.")
 
 if __name__ == "__main__":
     keep_alive()
     client.run(os.getenv('DISCORD_TOKEN'))
-    
