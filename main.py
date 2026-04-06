@@ -4,10 +4,10 @@ import discord
 from flask import Flask
 from threading import Thread
 
-# --- سيرفر الويب لضمان استمرارية Render ---
+# --- إعداد سيرفر Render ---
 app = Flask('')
 @app.route('/')
-def home(): return "Steve Admin System is Live!"
+def home(): return "Steve Admin OS is Active"
 
 def run():
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
@@ -17,58 +17,61 @@ def keep_alive():
 
 intents = discord.Intents.default()
 intents.message_content = True
-intents.members = True # لتمكين القرارات الإدارية مثل الطرد أو الحظر
 client = discord.Client(intents=intents)
 
 @client.event
 async def on_ready():
-    print(f'✅ {client.user} متصل بنظام الإدارة الذكي!')
+    print(f'✅ {client.user} جاهز للعمل بنظام المدير والموظف!')
 
 @client.event
 async def on_message(message):
     if message.author.bot: return
 
-    # --- تحديد "النية" إدارية أم عادية ---
-    # كلمات تدل على قرارات إدارية أو أوامر للنظام
-    admin_keywords = ["طرد", "حظر", "اسكت", "تكلم", "رتب", "نظم", "قرار", "صلاحية", "إدارة", "سيرفر", "إعدادات"]
-    is_admin_task = any(word in message.content for word in admin_keywords)
+    # --- معيار الفصل: هل الرسالة "أمر إداري" أم "دردشة عادية"؟ ---
+    admin_tokens = ["قرار", "إدارة", "سيرفر", "أمر", "تنظيم", "قانون", "رتبة", "صلاحية"]
+    is_admin = any(token in message.content for token in admin_tokens)
 
-    if is_admin_task:
-        # عقل المدير (اتخاذ القرارات)
-        selected_model = "qwen/qwen-2.5-7b-instruct:free"
-        system_prompt = "أنت المدير الإداري لـ Steve. مهمتك اتخاذ قرارات حازمة، تنظيم السيرفر، والإجابة كمسؤول عن النظام."
-        prefix = "👔 **[المدير الإداري - Qwen]:** "
+    if is_admin:
+        # عقل "المدير الإداري" - نستخدم النسخة 7B لأنها متاحة دائماً ومستقرة
+        model = "qwen/qwen-2.5-7b-instruct:free"
+        system_msg = "أنت المدير الإداري لـ Steve. وظيفتك اتخاذ قرارات حازمة وتنظيمية بأسلوب رسمي."
+        label = "👔 **الإدارة (Qwen):**"
     else:
-        # عقل المساعد (الدردشة العادية)
-        selected_model = "meta-llama/llama-3.1-8b-instruct:free"
-        system_prompt = "أنت ستيف، صديق مرح وودود. دردش مع المستخدمين بلطف وبساطة."
-        prefix = "💬 **[ستيف - Llama]:** "
+        # عقل "الموظف الودود" للدردشة
+        model = "meta-llama/llama-3.1-8b-instruct:free"
+        system_msg = "أنت ستيف، صديق مرح للدردشة العادية."
+        label = "💬 **ستيف (Llama):**"
 
     async with message.channel.typing():
         try:
             api_key = os.getenv("OPENROUTER_API_KEY")
             response = requests.post(
                 url="https://openrouter.ai/api/v1/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}"},
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
                 json={
-                    "model": selected_model,
+                    "model": model,
                     "messages": [
-                        {"role": "system", "content": system_prompt},
+                        {"role": "system", "content": system_msg},
                         {"role": "user", "content": message.content}
-                    ],
-                    "route": "fallback"
+                    ]
                 }
             )
             
-            data = response.json()
-            if 'choices' in data:
-                res_text = data['choices'][0]['message']['content']
-                await message.channel.send(f"{prefix}{res_text}"[:2000])
+            res = response.json()
+            if 'choices' in res:
+                content = res['choices'][0]['message']['content']
+                await message.channel.send(f"{label}\n{content}")
             else:
-                await message.channel.send("⚠️ يبدو أن المدير مشغول حالياً، حاول مجدداً.")
+                # إذا كان الموديل مشغولاً، سيعطيك السبب فوراً
+                err = res.get('error', {}).get('message', 'خطأ تقني')
+                await message.channel.send(f"⚠️ فشل الطلب: `{err}`")
         except Exception as e:
             print(f"Error: {e}")
 
 if __name__ == "__main__":
     keep_alive()
     client.run(os.getenv('DISCORD_TOKEN'))
+    
