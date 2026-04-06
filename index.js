@@ -2,8 +2,9 @@ import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import express from 'express';
 
+// خادم الويب للبقاء أونلاين
 const app = express();
-app.get('/', (req, res) => res.send('Steve Debug Mode Active!'));
+app.get('/', (req, res) => res.send('Steve 1.0 Monitoring Mode Active!'));
 app.listen(process.env.PORT || 3000);
 
 const client = new Client({
@@ -15,17 +16,20 @@ const client = new Client({
     partials: [Partials.Message, Partials.Channel],
 });
 
+// إعداد Gemini 1.0
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-// محاولة استخدام إصدار 1.0 كما طلبت
-const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro" });
+const model = genAI.getGenerativeModel({ 
+    model: "gemini-1.0-pro" 
+});
 
 client.once('ready', () => {
-    console.log(`✅ ${client.user.tag} متصل في وضع كشف الأخطاء`);
+    console.log(`✅ ${client.user.tag} يراقب الشات الآن بنسخة 1.0`);
 });
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
 
+    // مراقبة الشات: الرد عند المنشن، أو كلمة ستيف، أو الردود (Replies)
     const isMentioned = message.mentions.has(client.user);
     const startsWithSteve = message.content.startsWith('ستيف');
     const isReplyToBot = message.reference && (await message.channel.messages.fetch(message.reference.messageId)).author.id === client.user.id;
@@ -35,8 +39,10 @@ client.on('messageCreate', async (message) => {
     const prompt = message.content.replace(/<@!?\d+>/g, '').replace('ستيف', '').trim();
 
     try {
+        // إظهار حالة "يكتب..."
         await message.channel.sendTyping();
 
+        // إرسال البيانات للذكاء الاصطناعي
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
 
@@ -44,9 +50,9 @@ client.on('messageCreate', async (message) => {
             await message.reply(responseText);
         }
     } catch (error) {
-        // إظهار المشكلة التقنية بالتفصيل في الديسكورد
-        console.error("DEBUG ERROR:", error);
-        await message.reply(`❌ **خطأ تقني مكتشف:**\n\`\`\`\n${error.message}\n\`\`\``);
+        // عرض الخطأ التقني فوراً في الديسكورد لمعرفة سبب التوقف
+        console.error("DEBUG:", error.message);
+        await message.reply(`❌ **تنبيه تقني (Debug):**\n\`\`\`\n${error.message}\n\`\`\``);
     }
 });
 
