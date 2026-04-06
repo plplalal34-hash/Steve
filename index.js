@@ -53,5 +53,5 @@ client.on("messageCreate", async (message) => {
 });
 
 // 4. تسجيل الدخول
-client.login("MTQ5MDQ0NDgyMDA5ODA1NjE5Mg.G5bIqe.qUdL2fcCqd4mSi31xsv_wRTcKME5E2UsJ-msu0");
+client.login("Dicord");
 
