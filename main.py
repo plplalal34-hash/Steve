@@ -4,10 +4,10 @@ import discord
 from flask import Flask
 from threading import Thread
 
-# --- سيرفر البقاء بنظام Render الجديد ---
+# --- سيرفر البقاء ---
 app = Flask('')
 @app.route('/')
-def home(): return "Steve Hybrid is Live!"
+def home(): return "Steve is Live!"
 
 def run():
     port = int(os.environ.get("PORT", 8080))
@@ -16,58 +16,48 @@ def run():
 def keep_alive():
     Thread(target=run).start()
 
-# --- إعدادات ديسكورد ---
+# --- إعداد ديسكورد ---
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
 @client.event
 async def on_ready():
-    print(f'✅ ستيف الهجين انطلق باسم: {client.user}')
+    print(f'✅ ستيف جاهز! المتصل: {client.user}')
 
 @client.event
 async def on_message(message):
     if message.author == client.user: return
 
-    # نظام تمييز الأسئلة الدراسية (للسادس العلمي)
-    study_words = ["حل", "اشرح", "كيف", "لماذا", "ما هي", "عرف", "وضح"]
-    is_study = any(word in message.content for word in study_words)
-    
-    # اختيار الموديلات المجانية من OpenRouter
-    # Qwen 2.5 جبار في الأحياء والكيمياء والعربية
-    # Llama 3.3 رائع في الدردشة والمزاح
-    model = "qwen/qwen-2.5-72b-instruct:free" if is_study else "meta-llama/llama-3.3-70b-instruct:free"
-
     async with message.channel.typing():
         try:
+            # استخدام OpenRouter مع الموديل المجاني Qwen 2.5
             response = requests.post(
                 url="https://openrouter.ai/api/v1/chat/completions",
                 headers={
                     "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
-                    "HTTP-Referer": "https://render.com", # اختياري لـ OpenRouter
                 },
                 json={
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": "أنت ستيف، مساعد ذكي ومرح. تستخدم أسلوباً علمياً دقيقاً عند الشرح."},
-                        {"role": "user", "content": message.content}
-                    ]
+                    "model": "qwen/qwen-2.5-7b-instruct:free", # الموديل المجاني اللي فتحته في الصورة
+                    "messages": [{"role": "user", "content": message.content}]
                 }
             )
             
-            res_data = response.json()
-            if 'choices' in res_data:
-                answer = res_data['choices'][0]['message']['content']
-                icon = "🧠" if is_study else "⚡"
-                await message.channel.send(f"{icon} {answer[:1950]}")
+            res_json = response.json()
+            
+            # فحص إذا كان المفتاح شغال أو فيه خطأ
+            if 'choices' in res_json:
+                answer = res_json['choices'][0]['message']['content']
+                await message.channel.send(answer[:2000])
             else:
-                print(f"Error from API: {res_data}")
-                await message.channel.send("⚠️ هناك مشكلة في معالجة الطلب، تأكد من رصيد OpenRouter المجاني.")
+                # هذا السطر سيخبرك بالضبط ما هي المشكلة في السجلات
+                print(f"API Error: {res_json}")
+                await message.channel.send(f"⚠️ خطأ في المفتاح: `{res_json.get('error', {}).get('message', 'Unknown Error')}`")
 
         except Exception as e:
-            print(f"Error: {e}")
-            await message.channel.send("⚙️ واجهت تداخلاً في الأفكار، حاول مجدداً!")
+            await message.channel.send("⚙️ واجهت مشكلة في الاتصال.")
 
 if __name__ == "__main__":
     keep_alive()
     client.run(os.getenv('DISCORD_TOKEN'))
+    
