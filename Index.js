@@ -5,7 +5,7 @@ const express = require("express");
 
 const app = express();
 const port = process.env.PORT || 3000;
-app.get("/", (req, res) => res.send("STEVE_IS_READY"));
+app.get("/", (req, res) => res.send("STEVE_ONLINE"));
 app.listen(port, "0.0.0.0");
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -25,7 +25,7 @@ client.on("messageCreate", async (message) => {
         const response = await result.response;
         await message.reply(response.text());
     } catch (e) {
-        console.error(e);
+        console.error("Error:", e.message);
     }
 });
 
