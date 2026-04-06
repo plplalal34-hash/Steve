@@ -4,7 +4,7 @@ import discord
 from flask import Flask
 from threading import Thread
 
-# --- سيرفر البقاء ---
+# --- سيرفر البقاء بنظام Render ---
 app = Flask('')
 @app.route('/')
 def home(): return "Steve is Live!"
@@ -23,41 +23,46 @@ client = discord.Client(intents=intents)
 
 @client.event
 async def on_ready():
-    print(f'✅ ستيف جاهز! المتصل: {client.user}')
+    print(f'✅ ستيف متصل الآن باسم: {client.user}')
 
 @client.event
 async def on_message(message):
     if message.author == client.user: return
 
+    # نظام ذكي بسيط للرد
     async with message.channel.typing():
         try:
-            # استخدام OpenRouter مع الموديل المجاني Qwen 2.5
+            api_key = os.getenv("OPENROUTER_API_KEY")
+            
             response = requests.post(
                 url="https://openrouter.ai/api/v1/chat/completions",
                 headers={
-                    "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
                 },
                 json={
-                    "model": "qwen/qwen-2.5-7b-instruct:free", # الموديل المجاني اللي فتحته في الصورة
+                    "model": "qwen/qwen-2.5-7b-instruct:free", # الموديل المجاني
                     "messages": [{"role": "user", "content": message.content}]
                 }
             )
             
-            res_json = response.json()
+            res_data = response.json()
             
-            # فحص إذا كان المفتاح شغال أو فيه خطأ
-            if 'choices' in res_json:
-                answer = res_json['choices'][0]['message']['content']
+            if 'choices' in res_data:
+                answer = res_data['choices'][0]['message']['content']
                 await message.channel.send(answer[:2000])
             else:
-                # هذا السطر سيخبرك بالضبط ما هي المشكلة في السجلات
-                print(f"API Error: {res_json}")
-                await message.channel.send(f"⚠️ خطأ في المفتاح: `{res_json.get('error', {}).get('message', 'Unknown Error')}`")
+                # طباعة الخطأ في السجلات لمعرفته
+                error_msg = res_data.get('error', {}).get('message', 'خطأ غير معروف')
+                print(f"API Error: {error_msg}")
+                await message.channel.send(f"⚠️ مشكلة في الـ API: `{error_msg}`")
 
         except Exception as e:
-            await message.channel.send("⚙️ واجهت مشكلة في الاتصال.")
+            print(f"Error: {e}")
+            await message.channel.send("⚙️ واجهت تداخلاً في الأفكار، حاول مجدداً!")
 
 if __name__ == "__main__":
     keep_alive()
+    # تأكد من وضع التوكن الصحيح في Render
     client.run(os.getenv('DISCORD_TOKEN'))
     
