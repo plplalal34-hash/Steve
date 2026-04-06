@@ -2,9 +2,9 @@ import { Client, GatewayIntentBits, PermissionFlagsBits } from 'discord.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import express from 'express';
 
-// --- إعداد خادم الويب (لضمان عمل الخطة المجانية) ---
+// --- خادم ويب للبقاء مستيقظاً (لـ Render) ---
 const app = express();
-app.get('/', (req, res) => res.send('Steve Bot is Online! ✅'));
+app.get('/', (req, res) => res.send('✅ Steve AI is Online and Ready!'));
 app.listen(process.env.PORT || 3000);
 
 // --- إعداد ديسكورد ---
@@ -17,18 +17,20 @@ const client = new Client({
     ],
 });
 
-// --- إعداد الذكاء الاصطناعي ---
+// --- إعداد أحدث نسخة من Gemini AI ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// استخدمنا "gemini-1.5-flash" مباشرة مع تهيئة النظام
 const model = genAI.getGenerativeModel({ 
     model: "gemini-1.5-flash",
-    systemInstruction: "أنت ستيف، مدير سيرفر ذكي. وظيفتك الإجابة على الأسئلة والتحكم في السيرفر. إذا طلب منك شخص مسح رسائل، أخبره أنك ستقوم بذلك."
+    systemInstruction: "أنت 'ستيف'، بوت ذكي ومساعد في سيرفر ديسكورد. يمكنك الإجابة على الأسئلة العلمية وإدارة السيرفر. إذا طلب منك شخص حذف رسائل، فقم بذلك برمجياً."
 });
 
 client.once('ready', () => {
-    console.log(`✅ تم تشغيل الجسد (ستيف) بنجاح باسم: ${client.user.tag}`);
+    console.log(`✅ تم تشغيل الجسد بنجاح باسم: ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
+    // تجاهل رسائل البوتات أو الرسائل التي لا تبدأ بـ "ستيف"
     if (message.author.bot || !message.content.startsWith('ستيف')) return;
 
     const prompt = message.content.replace('ستيف', '').trim();
@@ -36,24 +38,31 @@ client.on('messageCreate', async (message) => {
     try {
         await message.channel.sendTyping();
 
-        // --- ميزة التحكم في السيرفر (مسح الرسائل) ---
+        // --- ميزة التحكم: مسح الرسائل ---
         if (prompt.includes('امسح') || prompt.includes('احذف')) {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
-                return message.reply("ليس لديك صلاحية لمسح الرسائل يا صديقي.");
+            if (message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+                const amount = parseInt(prompt.match(/\d+/)?.[0]) || 5;
+                await message.channel.bulkDelete(amount + 1);
+                return message.channel.send(`🧹 تم تنظيف المكان! مسحت ${amount} رسالة.`);
+            } else {
+                return message.reply("ليس لديك الصلاحية لاستخدام هذه القوة!");
             }
-            const amount = parseInt(prompt.match(/\d+/)?.[0]) || 5;
-            await message.channel.bulkDelete(amount + 1);
-            return message.channel.send(`🧹 نفذت الأمر! تم مسح ${amount} رسالة بنجاح.`);
         }
 
-        // --- الرد الذكي عبر AI ---
+        // --- الرد الذكي باستخدام أحدث API ---
         const result = await model.generateContent(prompt);
-        const response = await result.response;
-        await message.reply(response.text());
+        const text = result.response.text();
+        
+        if (text) {
+            await message.reply(text);
+        } else {
+            throw new Error("Empty Response");
+        }
 
     } catch (error) {
-        console.error(error);
-        await message.reply("عذراً، واجه 'عقلي' مشكلة في المعالجة!");
+        console.error("خطأ في العقل:", error);
+        // رسالة تنبيه إذا فشل الـ AI في الاتصال
+        await message.reply("عذراً، يبدو أن هناك مشكلة في اتصالي بمزود الذكاء الاصطناعي. تأكد من صلاحية الـ API Key.");
     }
 });
 
