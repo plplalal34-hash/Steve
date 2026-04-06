@@ -1,87 +1,60 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { Client, GatewayIntentBits, PermissionFlagsBits } from 'discord.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import express from 'express';
 
-export const data = new SlashCommandBuilder()
-  .setName('ai')
-  .setDescription('إدارة البوت الذكي')
-  .addSubcommand(sub =>
-    sub.setName('on').setDescription('تفعيل الردود في هذه القناة')
-  )
-  .addSubcommand(sub =>
-    sub.setName('off').setDescription('إيقاف الردود في هذه القناة')
-  )
-  .addSubcommand(sub =>
-    sub
-      .setName('persona')
-      .setDescription('تغيير شخصية البوت في هذا السيرفر')
-      .addStringOption(opt =>
-        opt
-          .setName('text')
-          .setDescription('اكتب وصف الشخصية')
-          .setRequired(true)
-      )
-  )
-  .addSubcommand(sub =>
-    sub.setName('status').setDescription('عرض حالة الإعدادات')
-  )
-  .addSubcommand(sub =>
-    sub.setName('reset').setDescription('مسح ذاكرة هذه القناة')
-  );
+// --- إعداد خادم الويب (لضمان عمل الخطة المجانية) ---
+const app = express();
+app.get('/', (req, res) => res.send('Steve Bot is Online! ✅'));
+app.listen(process.env.PORT || 3000);
 
-export async function execute(interaction, helpers) {
-  const { getGuildSettings, setGuildSettings, resetChannelMemory } = helpers;
+// --- إعداد ديسكورد ---
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMembers,
+    ],
+});
 
-  const guildId = interaction.guildId;
-  const channelId = interaction.channelId;
-  const sub = interaction.options.getSubcommand();
+// --- إعداد الذكاء الاصطناعي ---
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ 
+    model: "gemini-1.5-flash",
+    systemInstruction: "أنت ستيف، مدير سيرفر ذكي. وظيفتك الإجابة على الأسئلة والتحكم في السيرفر. إذا طلب منك شخص مسح رسائل، أخبره أنك ستقوم بذلك."
+});
 
-  const settings = await getGuildSettings(guildId);
+client.once('ready', () => {
+    console.log(`✅ تم تشغيل الجسد (ستيف) بنجاح باسم: ${client.user.tag}`);
+});
 
-  if (sub === 'on') {
-    settings.enabledChannels ??= [];
-    if (!settings.enabledChannels.includes(channelId)) {
-      settings.enabledChannels.push(channelId);
+client.on('messageCreate', async (message) => {
+    if (message.author.bot || !message.content.startsWith('ستيف')) return;
+
+    const prompt = message.content.replace('ستيف', '').trim();
+
+    try {
+        await message.channel.sendTyping();
+
+        // --- ميزة التحكم في السيرفر (مسح الرسائل) ---
+        if (prompt.includes('امسح') || prompt.includes('احذف')) {
+            if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+                return message.reply("ليس لديك صلاحية لمسح الرسائل يا صديقي.");
+            }
+            const amount = parseInt(prompt.match(/\d+/)?.[0]) || 5;
+            await message.channel.bulkDelete(amount + 1);
+            return message.channel.send(`🧹 نفذت الأمر! تم مسح ${amount} رسالة بنجاح.`);
+        }
+
+        // --- الرد الذكي عبر AI ---
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        await message.reply(response.text());
+
+    } catch (error) {
+        console.error(error);
+        await message.reply("عذراً، واجه 'عقلي' مشكلة في المعالجة!");
     }
-    await setGuildSettings(guildId, settings);
-    return interaction.reply({
-      content: 'تم تفعيل الردود في هذه القناة.',
-      ephemeral: true,
-    });
-  }
+});
 
-  if (sub === 'off') {
-    settings.enabledChannels ??= [];
-    settings.enabledChannels = settings.enabledChannels.filter(id => id !== channelId);
-    await setGuildSettings(guildId, settings);
-    return interaction.reply({
-      content: 'تم إيقاف الردود في هذه القناة.',
-      ephemeral: true,
-    });
-  }
-
-  if (sub === 'persona') {
-    const text = interaction.options.getString('text', true);
-    settings.persona = text;
-    await setGuildSettings(guildId, settings);
-    return interaction.reply({
-      content: 'تم حفظ شخصية البوت.',
-      ephemeral: true,
-    });
-  }
-
-  if (sub === 'status') {
-    const enabled = settings.enabledChannels?.includes(channelId) ? 'مفعلة' : 'غير مفعلة';
-    const persona = settings.persona || 'لم يتم تحديد شخصية بعد.';
-    return interaction.reply({
-      content: `الحالة الحالية:\n- هذه القناة: ${enabled}\n- الشخصية: ${persona}`,
-      ephemeral: true,
-    });
-  }
-
-  if (sub === 'reset') {
-    await resetChannelMemory(channelId);
-    return interaction.reply({
-      content: 'تم مسح ذاكرة هذه القناة.',
-      ephemeral: true,
-    });
-  }
-}
+client.login(process.env.BOT_TOKEN);
