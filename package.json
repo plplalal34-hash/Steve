@@ -1,15 +1,10 @@
 {
-  "name": "steve-bot",
+  "name": "discord-gemini-bot",
   "version": "1.0.0",
-  "description": "Steve AI Bot for Discord",
-  "main": "index.js",
+  "type": "module",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node index.js"
-  },
-  "dependencies": {
-    "discord.js": "^14.14.1",
-    "@google/generative-ai": "^0.11.4",
-    "dotenv": "^16.4.5",
-    "express": "^4.18.3"
+    "start": "node src/index.js",
+    "deploy": "node deploy-commands.js"
   }
 }
