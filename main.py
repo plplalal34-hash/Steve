@@ -4,9 +4,10 @@ import discord
 from flask import Flask
 from threading import Thread
 
+# --- سيرفر الويب لضمان استمرارية Render ---
 app = Flask('')
 @app.route('/')
-def home(): return "Steve Debug Mode is Live!"
+def home(): return "Steve Admin System is Live!"
 
 def run():
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
@@ -16,52 +17,58 @@ def keep_alive():
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True # لتمكين القرارات الإدارية مثل الطرد أو الحظر
 client = discord.Client(intents=intents)
 
 @client.event
 async def on_ready():
-    print(f'✅ {client.user} جاهز للفحص!')
+    print(f'✅ {client.user} متصل بنظام الإدارة الذكي!')
 
 @client.event
 async def on_message(message):
     if message.author.bot: return
 
-    # التحويل التلقائي لـ Qwen في الأسئلة العلمية (أحياء، كيمياء، إلخ)
-    science = ["حل", "اشرح", "علل", "ما", "كيف", "أحياء", "كيمياء", "فيزياء"]
-    model = "qwen/qwen-2.5-72b-instruct:free" if any(w in message.content for w in science) else "meta-llama/llama-3.3-70b-instruct:free"
+    # --- تحديد "النية" إدارية أم عادية ---
+    # كلمات تدل على قرارات إدارية أو أوامر للنظام
+    admin_keywords = ["طرد", "حظر", "اسكت", "تكلم", "رتب", "نظم", "قرار", "صلاحية", "إدارة", "سيرفر", "إعدادات"]
+    is_admin_task = any(word in message.content for word in admin_keywords)
+
+    if is_admin_task:
+        # عقل المدير (اتخاذ القرارات)
+        selected_model = "qwen/qwen-2.5-7b-instruct:free"
+        system_prompt = "أنت المدير الإداري لـ Steve. مهمتك اتخاذ قرارات حازمة، تنظيم السيرفر، والإجابة كمسؤول عن النظام."
+        prefix = "👔 **[المدير الإداري - Qwen]:** "
+    else:
+        # عقل المساعد (الدردشة العادية)
+        selected_model = "meta-llama/llama-3.1-8b-instruct:free"
+        system_prompt = "أنت ستيف، صديق مرح وودود. دردش مع المستخدمين بلطف وبساطة."
+        prefix = "💬 **[ستيف - Llama]:** "
 
     async with message.channel.typing():
         try:
             api_key = os.getenv("OPENROUTER_API_KEY")
-            
-            # إرسال الطلب مع Headers كاملة لضمان القبول
             response = requests.post(
                 url="https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "HTTP-Referer": "https://render.com", # مطلوب أحياناً للموديلات المجانية
-                    "X-Title": "Steve Bot",
-                    "Content-Type": "application/json"
-                },
+                headers={"Authorization": f"Bearer {api_key}"},
                 json={
-                    "model": model,
-                    "messages": [{"role": "user", "content": message.content}]
+                    "model": selected_model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": message.content}
+                    ],
+                    "route": "fallback"
                 }
             )
             
             data = response.json()
-            
             if 'choices' in data:
-                await message.channel.send(data['choices'][0]['message']['content'][:2000])
+                res_text = data['choices'][0]['message']['content']
+                await message.channel.send(f"{prefix}{res_text}"[:2000])
             else:
-                # سيكشف لك الآن السبب الحقيقي (مثلاً: رصيد غير كافٍ، أو مفتاح خاطئ)
-                error_details = data.get('error', {}).get('message', 'Unknown Error')
-                await message.channel.send(f"❌ رد OpenRouter: `{error_details}`")
-                
+                await message.channel.send("⚠️ يبدو أن المدير مشغول حالياً، حاول مجدداً.")
         except Exception as e:
-            await message.channel.send(f"⚠️ خطأ تقني: `{str(e)}`")
+            print(f"Error: {e}")
 
 if __name__ == "__main__":
     keep_alive()
     client.run(os.getenv('DISCORD_TOKEN'))
-    
